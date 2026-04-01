@@ -772,6 +772,13 @@ func handleHttpGetTask(task *pb.Task, result *pb.TaskResult) {
 		result.Data = "This server has disabled query sending"
 		return
 	}
+	if cfg, err := parseEmbyTarget(task.GetData()); err == nil {
+		handleEmbyProbeTask(task, result, cfg)
+		return
+	} else if !errors.Is(err, errNotEmbyTarget) {
+		result.Data = err.Error()
+		return
+	}
 	start := time.Now()
 	taskUrl := task.GetData()
 	resp, err := httpClient.Get(taskUrl)
