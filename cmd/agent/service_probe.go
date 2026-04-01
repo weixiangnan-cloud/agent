@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nezhahq/agent/pkg/util"
 	pb "github.com/nezhahq/agent/proto"
 )
 
@@ -191,9 +192,10 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 
 	start := time.Now()
 	var lastErr error
+	embyHTTPClient := util.NewSingleStackHTTPClient(time.Second*15, time.Second*10, time.Second*10, false)
 	for _, targetURL := range candidates {
 		printf("HTTP-GET Emby Task: %s", targetURL)
-		resp, err := httpClient.Get(targetURL)
+		resp, err := embyHTTPClient.Get(targetURL)
 		if err != nil {
 			lastErr = err
 			continue

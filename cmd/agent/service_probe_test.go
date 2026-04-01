@@ -52,10 +52,7 @@ func TestParseEmbyTarget(t *testing.T) {
 }
 
 func TestHandleEmbyProbeTaskFallsBackToEmbyPath(t *testing.T) {
-	oldClient := httpClient
-	defer func() { httpClient = oldClient }()
-
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/System/Info/Public":
 			http.NotFound(w, r)
@@ -68,10 +65,8 @@ func TestHandleEmbyProbeTaskFallsBackToEmbyPath(t *testing.T) {
 	}))
 	defer server.Close()
 
-	httpClient = server.Client()
-
 	result := &pb.TaskResult{}
-	task := &pb.Task{Data: "emby+" + server.URL}
+	task := &pb.Task{Data: "emby+http://" + server.Listener.Addr().String()}
 	cfg, err := parseEmbyTarget(task.GetData())
 	if err != nil {
 		t.Fatalf("parseEmbyTarget() error = %v", err)
@@ -87,24 +82,19 @@ func TestHandleEmbyProbeTaskFallsBackToEmbyPath(t *testing.T) {
 }
 
 func TestHandleEmbyProbeTaskChecksExpectedFields(t *testing.T) {
-	oldClient := httpClient
-	defer func() { httpClient = oldClient }()
-
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ServerName":"DemoEmby","Version":"4.10.0.6","Id":"abc123"}`))
 	}))
 	defer server.Close()
 
-	httpClient = server.Client()
-
 	result := &pb.TaskResult{}
 	cfg := &embyTargetConfig{
 		Type:            "emby",
-		URL:             server.URL,
+		URL:             "http://" + server.Listener.Addr().String(),
 		ExpectedVersion: "4.10.1.0",
 	}
-	handleEmbyProbeTask(&pb.Task{Data: server.URL}, result, cfg)
+	handleEmbyProbeTask(&pb.Task{Data: cfg.URL}, result, cfg)
 	if result.Successful {
 		t.Fatalf("expected failed probe due to version mismatch")
 	}
