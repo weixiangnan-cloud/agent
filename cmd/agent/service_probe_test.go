@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	pb "github.com/nezhahq/agent/proto"
@@ -100,5 +101,24 @@ func TestHandleEmbyProbeTaskChecksExpectedFields(t *testing.T) {
 	}
 	if result.Data == "" {
 		t.Fatalf("expected mismatch message")
+	}
+}
+
+func TestHandleEmbyProbeTaskIncludesCandidateFailures(t *testing.T) {
+	result := &pb.TaskResult{}
+	cfg := &embyTargetConfig{
+		Type: "emby",
+		URL:  "http://127.0.0.1:1",
+	}
+
+	handleEmbyProbeTask(&pb.Task{Data: cfg.URL}, result, cfg)
+	if result.Successful {
+		t.Fatalf("expected failed probe")
+	}
+	if result.Data == "" {
+		t.Fatalf("expected detailed failure message")
+	}
+	if got := result.Data; !strings.Contains(got, "System/Info/Public") {
+		t.Fatalf("expected candidate path in failure, got %q", got)
 	}
 }

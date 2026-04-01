@@ -192,6 +192,7 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 
 	start := time.Now()
 	var lastErr error
+	failures := make([]string, 0, len(candidates))
 	embyHTTPClient := util.NewSingleStackHTTPClient(time.Second*15, time.Second*10, time.Second*10, false)
 	for _, targetURL := range candidates {
 		printf("HTTP-GET Emby Task: %s", targetURL)
@@ -199,6 +200,7 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 		if err != nil {
 			printf("HTTP-GET Emby Task failed: %s error=%v", targetURL, err)
 			lastErr = err
+			failures = append(failures, fmt.Sprintf("%s => %v", targetURL, err))
 			continue
 		}
 
@@ -207,11 +209,13 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 		if readErr != nil {
 			printf("HTTP-GET Emby Task read failed: %s error=%v", targetURL, readErr)
 			lastErr = readErr
+			failures = append(failures, fmt.Sprintf("%s => read body: %v", targetURL, readErr))
 			continue
 		}
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusIMUsed {
 			printf("HTTP-GET Emby Task bad status: %s status=%s", targetURL, resp.Status)
 			lastErr = fmt.Errorf("emby http status: %s", resp.Status)
+			failures = append(failures, fmt.Sprintf("%s => status: %s", targetURL, resp.Status))
 			continue
 		}
 
@@ -219,16 +223,19 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 		if err := json.Unmarshal(body, &info); err != nil {
 			printf("HTTP-GET Emby Task invalid json: %s error=%v", targetURL, err)
 			lastErr = fmt.Errorf("emby response is not valid json: %w", err)
+			failures = append(failures, fmt.Sprintf("%s => invalid json: %v", targetURL, err))
 			continue
 		}
 		if info.ServerName == "" && info.Version == "" && info.ID == "" {
 			printf("HTTP-GET Emby Task missing fields: %s", targetURL)
 			lastErr = errors.New("emby response missing public info fields")
+			failures = append(failures, fmt.Sprintf("%s => missing public info fields", targetURL))
 			continue
 		}
 		if err := validateEmbyInfo(cfg, &info); err != nil {
 			printf("HTTP-GET Emby Task validation failed: %s error=%v", targetURL, err)
 			lastErr = err
+			failures = append(failures, fmt.Sprintf("%s => validation failed: %v", targetURL, err))
 			continue
 		}
 
@@ -238,6 +245,10 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 		return
 	}
 
+	if len(failures) > 0 {
+		result.Data = strings.Join(failures, " | ")
+		return
+	}
 	if lastErr != nil {
 		result.Data = lastErr.Error()
 	}
