@@ -2,6 +2,18 @@
   
 Agent of Nezha Monitoring
 
+## Emby Probe Target
+
+The existing HTTP service probe can monitor Emby public info endpoints.
+
+Examples:
+
+- `emby://rais115.huuwnb.cn:443`
+- `emby://rais115.huuwnb.cn:443?name=Raisemby-%E4%BC%97%E6%98%A0&version=4.10.0.6`
+- `{"type":"emby","url":"https://rais115.huuwnb.cn:443","expected_name":"Raisemby-众映","expected_version":"4.10.0.6"}`
+
+The agent will try `/System/Info/Public` first, then `/emby/System/Info/Public`, and mark the probe as failed when the HTTP status is abnormal, the JSON payload is invalid, or the expected Emby fields do not match.
+
 ## Contributors
 
 <!--GAMFC_DELIMITER--><a href="https://github.com/naiba" title="naiba"><img src="https://avatars.githubusercontent.com/u/29243953?v=4" width="50;" alt="naiba"/></a>
