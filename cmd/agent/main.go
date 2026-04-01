@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/blang/semver"
+	"github.com/hashicorp/go-uuid"
 	"github.com/nezhahq/go-github-selfupdate/selfupdate"
 	"github.com/nezhahq/service"
 	ping "github.com/prometheus-community/pro-bing"
@@ -31,6 +32,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/resolver"
+	"sigs.k8s.io/yaml"
 
 	"github.com/nezhahq/agent/cmd/agent/commands"
 	"github.com/nezhahq/agent/model"
@@ -169,16 +171,19 @@ func main() {
 		Version: version,
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "config", Aliases: []string{"c"}, Usage: "配置文件路径"},
+			&cli.StringFlag{Name: "server", Aliases: []string{"s"}, Usage: "服务器地址（兼容旧版本）"},
+			&cli.StringFlag{Name: "password", Aliases: []string{"p"}, Usage: "客户端密钥（兼容旧版本）"},
 		},
 		Action: func(c *cli.Context) error {
-			if path := c.String("config"); path != "" {
-				if err := preRun(path); err != nil {
-					return err
-				}
-			} else {
-				if err := preRun(""); err != nil {
-					return err
-				}
+			path := c.String("config")
+			if path == "" {
+				path = defaultConfigPath
+			}
+			if err := ensureLegacyConfig(path, c.String("server"), c.String("password")); err != nil {
+				return err
+			}
+			if err := preRun(path); err != nil {
+				return err
 			}
 			runService("", "")
 			return nil
@@ -226,6 +231,50 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func ensureLegacyConfig(path, server, secret string) error {
+	if server == "" && secret == "" {
+		return nil
+	}
+
+	cfg := model.AgentConfig{}
+	if data, err := os.ReadFile(path); err == nil {
+		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			return err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if cfg.UUID == "" {
+		u, err := uuid.GenerateUUID()
+		if err != nil {
+			return err
+		}
+		cfg.UUID = u
+	}
+	if cfg.ReportDelay == 0 {
+		cfg.ReportDelay = 3
+	}
+	if cfg.IPReportPeriod == 0 {
+		cfg.IPReportPeriod = 1800
+	}
+	if server != "" {
+		cfg.Server = server
+	}
+	if secret != "" {
+		cfg.ClientSecret = secret
+	}
+
+	data, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o600)
 }
 
 func run() {
