@@ -197,6 +197,7 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 		printf("HTTP-GET Emby Task: %s", targetURL)
 		resp, err := embyHTTPClient.Get(targetURL)
 		if err != nil {
+			printf("HTTP-GET Emby Task failed: %s error=%v", targetURL, err)
 			lastErr = err
 			continue
 		}
@@ -204,24 +205,29 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 		body, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if readErr != nil {
+			printf("HTTP-GET Emby Task read failed: %s error=%v", targetURL, readErr)
 			lastErr = readErr
 			continue
 		}
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusIMUsed {
+			printf("HTTP-GET Emby Task bad status: %s status=%s", targetURL, resp.Status)
 			lastErr = fmt.Errorf("emby http status: %s", resp.Status)
 			continue
 		}
 
 		var info embyPublicInfo
 		if err := json.Unmarshal(body, &info); err != nil {
+			printf("HTTP-GET Emby Task invalid json: %s error=%v", targetURL, err)
 			lastErr = fmt.Errorf("emby response is not valid json: %w", err)
 			continue
 		}
 		if info.ServerName == "" && info.Version == "" && info.ID == "" {
+			printf("HTTP-GET Emby Task missing fields: %s", targetURL)
 			lastErr = errors.New("emby response missing public info fields")
 			continue
 		}
 		if err := validateEmbyInfo(cfg, &info); err != nil {
+			printf("HTTP-GET Emby Task validation failed: %s error=%v", targetURL, err)
 			lastErr = err
 			continue
 		}
