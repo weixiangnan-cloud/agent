@@ -241,7 +241,7 @@ func handleEmbyProbeTask(task *pb.Task, result *pb.TaskResult, cfg *embyTargetCo
 
 		result.Delay = float32(time.Since(start).Microseconds()) / 1000.0
 		result.Successful = true
-		result.Data = fmt.Sprintf("emby|%s|%s|%s", info.ServerName, info.Version, info.ID)
+		result.Data = fmt.Sprintf("Emby OK: name=%s, version=%s, id=%s", info.ServerName, info.Version, info.ID)
 		return
 	}
 

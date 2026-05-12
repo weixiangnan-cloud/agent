@@ -77,7 +77,7 @@ func TestHandleEmbyProbeTaskFallsBackToEmbyPath(t *testing.T) {
 	if !result.Successful {
 		t.Fatalf("expected successful probe, got error: %s", result.Data)
 	}
-	if got, want := result.Data, "emby|DemoEmby|4.10.0.6|abc123"; got != want {
+	if got, want := result.Data, "Emby OK: name=DemoEmby, version=4.10.0.6, id=abc123"; got != want {
 		t.Fatalf("result.Data = %q, want %q", got, want)
 	}
 }
